@@ -1,0 +1,23 @@
+language: python
+python:
+  - "3.8"
+install:
+  - pip install coverage
+  - pip install -r requirements.txt
+  - pip install codecov
+  - pip install pytest-cov
+
+script:
+  - coverage run -m pytest --cov-report=xml --cov=.
+
+after_success:
+  - codecov
+
+deploy:
+  provider: lambda
+  function_name: "name_of_you_lambda"
+  role: $AWS_LAMBDA_DEPLOYMENT_ROLE
+  region: $AWS_REGION
+  runtime: "python3.8"
+  handler_name: "lambda_handler"
+  module_name: "entry_point/app"
