@@ -1,0 +1,63 @@
+name: deploy_lambda.yml
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt -t package/; fi
+
+      - name: Zip Lambda function
+        run: |
+          set -e  # exit on any error
+
+          echo "Cleaning previous build artifacts..."
+          rm -rf package function.zip
+
+          echo "Creating package folder..."
+          mkdir -p package/entry_point   # ensures parent directories exist
+          mkdir -p package/repositories  # ensures parent directories exist
+          mkdir -p package/services  # ensures parent directories exist
+
+          echo "Installing dependencies..."
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt -t package/
+          fi
+
+          echo "Copying source code..."
+          cp -r entry_point/*.py package/entry_point/
+          cp -r repositories/*.py package/repositories/
+          cp -r services/*.py package/services/
+          cp ./*.py ./package/
+
+          echo "Creating deployment zip..."
+          cd package
+          zip -r ../function.zip .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update Lambda function code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://function.zip
