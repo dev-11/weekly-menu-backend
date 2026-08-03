@@ -7,7 +7,7 @@ from entry_point import app
 
 def _event(method, week_start=None, body=None):
     return {
-        "requestContext": {"http": {"method": method}},
+        "httpMethod": method,
         "pathParameters": {"weekStart": week_start} if week_start else None,
         "body": json.dumps(body) if body is not None else None,
     }

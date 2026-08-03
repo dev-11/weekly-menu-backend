@@ -4,12 +4,12 @@ from services import ServiceFactory
 
 
 def lambda_handler(event, context):
-    """Expects API Gateway HTTP API (payload format 2.0) proxy events, routed as:
-    GET /weeks             -> list every stored week
-    GET /weeks/{weekStart} -> fetch one week
-    PUT /weeks/{weekStart} -> create or overwrite one week, body = WeekMenu JSON
+    """Expects a REST API Lambda proxy event, routed as:
+    GET /weekly_planner             -> list every stored week
+    GET /weekly_planner/{weekStart} -> fetch one week
+    PUT /weekly_planner/{weekStart} -> create or overwrite one week, body = WeekMenu JSON
     """
-    method = event["requestContext"]["http"]["method"]
+    method = event["httpMethod"]
     week_start = (event.get("pathParameters") or {}).get("weekStart")
 
     if method == "GET" and week_start:
