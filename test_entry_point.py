@@ -59,3 +59,8 @@ class TestEntryPoint(unittest.TestCase):
             {"days": [], "weekendDessert": {}, "weekStart": "2026-07-27"}
         )
         self.assertEqual(result["statusCode"], 200)
+
+    def test_unsupported_route(self):
+        result = app.lambda_handler(_event("DELETE"), None)
+
+        self.assertEqual(result["statusCode"], 400)
