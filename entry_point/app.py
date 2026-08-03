@@ -35,6 +35,13 @@ def lambda_handler(event, context):
 def _response(status_code, body):
     return {
         "statusCode": status_code,
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Content-Type": "application/json",
+            # Proxy integration passes headers through as-is — API Gateway's
+            # "Enable CORS" only covers the OPTIONS preflight response, the
+            # actual GET/PUT response has to carry this itself or the browser
+            # blocks it from JS even though the request succeeded server-side.
+            "Access-Control-Allow-Origin": "*",
+        },
         "body": json.dumps(body),
     }
