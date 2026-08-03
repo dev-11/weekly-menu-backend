@@ -8,9 +8,21 @@ def lambda_handler(event, context):
     GET /weekly_planner             -> list every stored week
     GET /weekly_planner/{weekStart} -> fetch one week
     PUT /weekly_planner/{weekStart} -> create or overwrite one week, body = WeekMenu JSON
+    GET /weekly_planner/unfurl      -> {"title": ...} for ?url=, or null if unresolved
+
+    "resource" (the matched API Gateway resource template, e.g.
+    "/weekly_planner/unfurl") disambiguates unfurl from the other two GETs,
+    since neither pathParameters nor the body can do that on their own.
     """
     method = event["httpMethod"]
     week_start = (event.get("pathParameters") or {}).get("weekStart")
+
+    if event.get("resource") == "/weekly_planner/unfurl" and method == "GET":
+        url = (event.get("queryStringParameters") or {}).get("url")
+        if not url:
+            return _response(400, {"message": "Missing url parameter"})
+        unfurl_service = ServiceFactory().get_unfurl_service()
+        return _response(200, {"title": unfurl_service.fetch_title(url)})
 
     if method == "GET" and week_start:
         storage_service = ServiceFactory().get_storage_service()

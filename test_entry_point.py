@@ -5,10 +5,12 @@ from unittest.mock import MagicMock, patch
 from entry_point import app
 
 
-def _event(method, week_start=None, body=None):
+def _event(method, week_start=None, body=None, resource=None, query=None):
     return {
         "httpMethod": method,
+        "resource": resource,
         "pathParameters": {"weekStart": week_start} if week_start else None,
+        "queryStringParameters": query,
         "body": json.dumps(body) if body is not None else None,
     }
 
@@ -62,5 +64,33 @@ class TestEntryPoint(unittest.TestCase):
 
     def test_unsupported_route(self):
         result = app.lambda_handler(_event("DELETE"), None)
+
+        self.assertEqual(result["statusCode"], 400)
+
+    @patch("entry_point.app.ServiceFactory")
+    def test_unfurl(self, mock_factory):
+        unfurl = MagicMock()
+        unfurl.fetch_title.return_value = "Sheet-Pan Baked Feta With Broccolini"
+        mock_factory.return_value.get_unfurl_service.return_value = unfurl
+
+        result = app.lambda_handler(
+            _event(
+                "GET",
+                resource="/weekly_planner/unfurl",
+                query={"url": "https://cooking.nytimes.com/recipes/1234"},
+            ),
+            None,
+        )
+
+        unfurl.fetch_title.assert_called_once_with("https://cooking.nytimes.com/recipes/1234")
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(
+            json.loads(result["body"]), {"title": "Sheet-Pan Baked Feta With Broccolini"}
+        )
+
+    def test_unfurl_missing_url(self):
+        result = app.lambda_handler(
+            _event("GET", resource="/weekly_planner/unfurl", query=None), None
+        )
 
         self.assertEqual(result["statusCode"], 400)
