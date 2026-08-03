@@ -25,26 +25,26 @@ jobs:
       - name: Zip Lambda function
         run: |
           set -e  # exit on any error
-
+      
           echo "Cleaning previous build artifacts..."
           rm -rf package function.zip
-
+      
           echo "Creating package folder..."
           mkdir -p package/entry_point   # ensures parent directories exist
           mkdir -p package/repositories  # ensures parent directories exist
           mkdir -p package/services  # ensures parent directories exist
-
+      
           echo "Installing dependencies..."
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt -t package/
           fi
-
+      
           echo "Copying source code..."
           cp -r entry_point/*.py package/entry_point/
           cp -r repositories/*.py package/repositories/
           cp -r services/*.py package/services/
           cp ./*.py ./package/
-
+      
           echo "Creating deployment zip..."
           cd package
           zip -r ../function.zip .
