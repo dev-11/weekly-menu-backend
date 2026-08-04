@@ -94,3 +94,20 @@ class TestEntryPoint(unittest.TestCase):
         )
 
         self.assertEqual(result["statusCode"], 400)
+
+    @patch("entry_point.app.ServiceFactory")
+    def test_insights(self, mock_factory):
+        storage = MagicMock()
+        storage.list_weeks.return_value = [{"weekStart": "2026-07-27"}]
+        insights = MagicMock()
+        insights.build_report.return_value = {"mostCooked": []}
+        mock_factory.return_value.get_storage_service.return_value = storage
+        mock_factory.return_value.get_insights_service.return_value = insights
+
+        result = app.lambda_handler(
+            _event("GET", resource="/weekly_planner/insights"), None
+        )
+
+        insights.build_report.assert_called_once_with([{"weekStart": "2026-07-27"}])
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(json.loads(result["body"]), {"mostCooked": []})

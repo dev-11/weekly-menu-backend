@@ -1,5 +1,6 @@
 from services.storage_service import StorageService
 from services.unfurl_service import UnfurlService
+from services.insights_service import InsightsService
 
 from repositories import DynamoDbRepository
 import config as c
@@ -13,3 +14,7 @@ class ServiceFactory:
     @staticmethod
     def get_unfurl_service() -> UnfurlService:
         return UnfurlService()
+
+    @staticmethod
+    def get_insights_service() -> InsightsService:
+        return InsightsService()
