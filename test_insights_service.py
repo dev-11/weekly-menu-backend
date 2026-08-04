@@ -30,7 +30,10 @@ class TestInsightsService(unittest.TestCase):
 
         report = self.service.build_report(weeks)
 
-        self.assertEqual(report["mostCooked"][0], {"name": "Cold Plate", "count": 2})
+        self.assertEqual(
+            report["mostCooked"][0],
+            {"name": "Cold Plate", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}},
+        )
 
     def test_dish_name_prefers_resolved_title_over_raw_url(self):
         weeks = [_week("2026-01-05", [
@@ -40,7 +43,24 @@ class TestInsightsService(unittest.TestCase):
 
         report = self.service.build_report(weeks)
 
-        self.assertEqual(report["mostCooked"][0], {"name": "Sheet-Pan Feta", "count": 2})
+        self.assertEqual(
+            report["mostCooked"][0],
+            {"name": "Sheet-Pan Feta", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}},
+        )
+
+    def test_most_cooked_tracks_source_breakdown(self):
+        weeks = [_week("2026-01-05", [
+            _meal("Pizza", source="ordered"),
+            _meal("Pizza", source="ordered"),
+            _meal("Pizza", source="home"),
+        ])]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(
+            report["mostCooked"][0],
+            {"name": "Pizza", "count": 3, "sources": {"home": 1, "ordered": 2, "ateOut": 0}},
+        )
 
     def test_empty_and_blank_dishes_are_excluded(self):
         weeks = [_week("2026-01-05", [_meal(""), _meal("   ")])]
@@ -97,7 +117,10 @@ class TestInsightsService(unittest.TestCase):
 
         report = self.service.build_report(weeks)
 
-        self.assertEqual(report["mostCooked"], [{"name": "Pie", "count": 1}])
+        self.assertEqual(
+            report["mostCooked"],
+            [{"name": "Pie", "count": 1, "sources": {"home": 1, "ordered": 0, "ateOut": 0}}],
+        )
         self.assertEqual(report["varietyByType"], [{"type": "dessert", "label": "Dessert", "unique": 1, "total": 1}])
 
 

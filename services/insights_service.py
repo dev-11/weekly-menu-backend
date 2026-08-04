@@ -39,8 +39,11 @@ class InsightsService:
             name = self._dish_name(meal)
             key = name.lower()
             if key not in stats:
-                stats[key] = {"name": name, "count": 0}
+                stats[key] = {"name": name, "count": 0, "sources": {"home": 0, "ordered": 0, "ateOut": 0}}
             stats[key]["count"] += 1
+            source = meal.get("source", "home")
+            if source in stats[key]["sources"]:
+                stats[key]["sources"][source] += 1
         return sorted(stats.values(), key=lambda d: (-d["count"], d["name"]))
 
     def _variety_by_type(self, slots):
