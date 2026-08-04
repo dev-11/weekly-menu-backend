@@ -12,6 +12,7 @@ class InsightsService:
             "repeatWarnings": self._repeat_warnings(slots),
             "varietyByType": self._variety_by_type(slots),
             "sourceBreakdown": self._source_breakdown(slots),
+            "sourceByType": self._source_by_type(slots),
             "onlyOnce": [{"name": d["name"]} for d in stats if d["count"] == 1],
         }
 
@@ -99,3 +100,32 @@ class InsightsService:
                 counts[source] += 1
         counts["total"] = len(slots)
         return counts
+
+    @staticmethod
+    def _source_by_type(slots):
+        by_source = {"home": {}, "ordered": {}, "ateOut": {}}
+        totals = {"home": 0, "ordered": 0, "ateOut": 0}
+        for slot_type, meal in slots:
+            source = meal.get("source", "home")
+            if source not in by_source:
+                continue
+            counts = by_source[source]
+            counts[slot_type] = counts.get(slot_type, 0) + 1
+            totals[source] += 1
+
+        result = {}
+        for source, counts in by_source.items():
+            total = totals[source]
+            breakdown = [
+                {
+                    "type": slot_type,
+                    "label": SLOT_LABELS[slot_type],
+                    "count": counts[slot_type],
+                    "share": counts[slot_type] / total if total else 0,
+                }
+                for slot_type in SLOT_TYPES
+                if slot_type in counts
+            ]
+            breakdown.sort(key=lambda b: -b["count"])
+            result[source] = breakdown
+        return result

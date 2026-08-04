@@ -112,6 +112,46 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(report["sourceBreakdown"], {"home": 1, "ordered": 1, "ateOut": 1, "total": 3})
 
+    def test_source_by_type_breaks_down_each_source_by_meal_type(self):
+        weeks = [{
+            "weekStart": "2026-01-05",
+            "days": [
+                {"date": "d0", "meals": {
+                    "breakfast": _meal(""),
+                    "lunch": _meal("Pizza", source="ordered"),
+                    "dinner": _meal("Curry", source="ordered"),
+                }},
+                {"date": "d1", "meals": {
+                    "breakfast": _meal(""),
+                    "lunch": _meal("Pizza", source="ordered"),
+                    "dinner": _meal("Diner", source="ateOut"),
+                }},
+            ],
+            "weekendDessert": _meal(""),
+        }]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(
+            report["sourceByType"]["ordered"],
+            [
+                {"type": "lunch", "label": "Lunch", "count": 2, "share": 2 / 3},
+                {"type": "dinner", "label": "Dinner", "count": 1, "share": 1 / 3},
+            ],
+        )
+        self.assertEqual(
+            report["sourceByType"]["ateOut"],
+            [{"type": "dinner", "label": "Dinner", "count": 1, "share": 1.0}],
+        )
+
+    def test_source_by_type_empty_for_unused_source(self):
+        weeks = [_week("2026-01-05", [_meal("Cold Plate")])]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(report["sourceByType"]["ordered"], [])
+        self.assertEqual(report["sourceByType"]["ateOut"], [])
+
     def test_dessert_slot_included(self):
         weeks = [_week("2026-01-05", [], dessert=_meal("Pie"))]
 
