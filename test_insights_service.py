@@ -31,7 +31,7 @@ class TestInsightsService(unittest.TestCase):
         report = self.service.build_report(weeks)
 
         self.assertEqual(
-            report["mostCooked"][0],
+            report["favourites"]["all"][0],
             {"name": "Cold Plate", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}},
         )
 
@@ -44,7 +44,7 @@ class TestInsightsService(unittest.TestCase):
         report = self.service.build_report(weeks)
 
         self.assertEqual(
-            report["mostCooked"][0],
+            report["favourites"]["all"][0],
             {"name": "Sheet-Pan Feta", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}},
         )
 
@@ -58,7 +58,7 @@ class TestInsightsService(unittest.TestCase):
         report = self.service.build_report(weeks)
 
         self.assertEqual(
-            report["mostCooked"][0],
+            report["favourites"]["all"][0],
             {"name": "Pizza", "count": 3, "sources": {"home": 1, "ordered": 2, "ateOut": 0}},
         )
 
@@ -67,7 +67,7 @@ class TestInsightsService(unittest.TestCase):
 
         report = self.service.build_report(weeks)
 
-        self.assertEqual(report["mostCooked"], [])
+        self.assertEqual(report["favourites"]["all"], [])
         self.assertEqual(report["sourceBreakdown"], {"home": 0, "ordered": 0, "ateOut": 0, "total": 0})
 
     def test_only_once_lists_dishes_cooked_exactly_once(self):
@@ -207,10 +207,68 @@ class TestInsightsService(unittest.TestCase):
         report = self.service.build_report(weeks)
 
         self.assertEqual(
-            report["mostCooked"],
+            report["favourites"]["all"],
             [{"name": "Pie", "count": 1, "sources": {"home": 1, "ordered": 0, "ateOut": 0}}],
         )
         self.assertEqual(report["varietyByType"], [{"type": "dessert", "label": "Dessert", "unique": 1, "total": 1}])
+
+    def test_favourites_by_type_ranks_dishes_within_each_meal_type(self):
+        weeks = [{
+            "weekStart": "2026-01-05",
+            "days": [
+                {"date": "d0", "meals": {
+                    "breakfast": _meal("Yoghurt", source="home"),
+                    "lunch": _meal("Pizza", source="ordered"),
+                    "dinner": _meal("Cold Plate", source="home"),
+                }},
+                {"date": "d1", "meals": {
+                    "breakfast": _meal("Yoghurt", source="home"),
+                    "lunch": _meal("Salad", source="home"),
+                    "dinner": _meal("Cold Plate", source="home"),
+                }},
+            ],
+            "weekendDessert": _meal(""),
+        }]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(
+            report["favourites"]["byType"]["breakfast"],
+            [{"name": "Yoghurt", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}}],
+        )
+        self.assertEqual(
+            report["favourites"]["byType"]["lunch"],
+            [
+                {"name": "Pizza", "count": 1, "sources": {"home": 0, "ordered": 1, "ateOut": 0}},
+                {"name": "Salad", "count": 1, "sources": {"home": 1, "ordered": 0, "ateOut": 0}},
+            ],
+        )
+        self.assertEqual(
+            report["favourites"]["byType"]["dinner"],
+            [{"name": "Cold Plate", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}}],
+        )
+        self.assertNotIn("dessert", report["favourites"]["byType"])
+
+    def test_favourites_ordered_and_ateout_rank_by_that_sources_count(self):
+        weeks = [_week("2026-01-05", [
+            _meal("Pizza", source="ordered"),
+            _meal("Pizza", source="ordered"),
+            _meal("Diner", source="ateOut"),
+            _meal("Cold Plate", source="home"),
+        ])]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(report["favourites"]["ordered"], [{"name": "Pizza", "count": 2}])
+        self.assertEqual(report["favourites"]["ateOut"], [{"name": "Diner", "count": 1}])
+
+    def test_favourites_ordered_excludes_dishes_never_ordered(self):
+        weeks = [_week("2026-01-05", [_meal("Cold Plate", source="home")])]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(report["favourites"]["ordered"], [])
+        self.assertEqual(report["favourites"]["ateOut"], [])
 
 
 if __name__ == "__main__":

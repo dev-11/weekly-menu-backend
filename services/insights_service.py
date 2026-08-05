@@ -9,7 +9,12 @@ class InsightsService:
         slots = self._filled_slots(weeks)
         stats = self._dish_stats(slots)
         return {
-            "mostCooked": stats[:8],
+            "favourites": {
+                "all": stats[:8],
+                "byType": self._dish_stats_by_type(slots),
+                "ordered": self._favourites_by_source(stats, "ordered"),
+                "ateOut": self._favourites_by_source(stats, "ateOut"),
+            },
             "repeatWarnings": self._repeat_warnings(slots),
             "varietyByType": self._variety_by_type(slots),
             "sourceBreakdown": self._source_breakdown(slots),
@@ -48,6 +53,33 @@ class InsightsService:
             if source in stats[key]["sources"]:
                 stats[key]["sources"][source] += 1
         return sorted(stats.values(), key=lambda d: (-d["count"], d["name"]))
+
+    def _dish_stats_by_type(self, slots):
+        by_type = {}
+        for slot_type, meal in slots:
+            name = self._dish_name(meal)
+            key = name.lower()
+            type_stats = by_type.setdefault(slot_type, {})
+            if key not in type_stats:
+                type_stats[key] = {"name": name, "count": 0, "sources": {"home": 0, "ordered": 0, "ateOut": 0}}
+            type_stats[key]["count"] += 1
+            source = meal.get("source", "home")
+            if source in type_stats[key]["sources"]:
+                type_stats[key]["sources"][source] += 1
+
+        result = {}
+        for slot_type in SLOT_TYPES:
+            if slot_type not in by_type:
+                continue
+            stats = sorted(by_type[slot_type].values(), key=lambda d: (-d["count"], d["name"]))
+            result[slot_type] = stats[:8]
+        return result
+
+    @staticmethod
+    def _favourites_by_source(stats, source):
+        filtered = [d for d in stats if d["sources"][source] > 0]
+        filtered.sort(key=lambda d: (-d["sources"][source], d["name"]))
+        return [{"name": d["name"], "count": d["sources"][source]} for d in filtered[:8]]
 
     def _variety_by_type(self, slots):
         by_type = {}
