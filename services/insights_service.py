@@ -1,6 +1,7 @@
 MEAL_TYPES = ["breakfast", "lunch", "dinner"]
 SLOT_TYPES = MEAL_TYPES + ["dessert"]
 SLOT_LABELS = {"breakfast": "Breakfast", "lunch": "Lunch", "dinner": "Dinner", "dessert": "Dessert"}
+SOURCE_LABELS = {"home": "Home cooked", "ordered": "Ordered", "ateOut": "Eat out"}
 
 
 class InsightsService:
@@ -13,6 +14,7 @@ class InsightsService:
             "varietyByType": self._variety_by_type(slots),
             "sourceBreakdown": self._source_breakdown(slots),
             "sourceByType": self._source_by_type(slots),
+            "typeSourceBreakdown": self._type_source_breakdown(slots),
             "onlyOnce": [{"name": d["name"]} for d in stats if d["count"] == 1],
         }
 
@@ -128,4 +130,36 @@ class InsightsService:
             ]
             breakdown.sort(key=lambda b: -b["count"])
             result[source] = breakdown
+        return result
+
+    @staticmethod
+    def _type_source_breakdown(slots):
+        by_type = {}
+        totals = {}
+        for slot_type, meal in slots:
+            source = meal.get("source", "home")
+            if source not in SOURCE_LABELS:
+                continue
+            counts = by_type.setdefault(slot_type, {})
+            counts[source] = counts.get(source, 0) + 1
+            totals[slot_type] = totals.get(slot_type, 0) + 1
+
+        result = []
+        for slot_type in SLOT_TYPES:
+            if slot_type not in by_type:
+                continue
+            total = totals[slot_type]
+            counts = by_type[slot_type]
+            sources = [
+                {
+                    "key": source,
+                    "label": SOURCE_LABELS[source],
+                    "count": counts[source],
+                    "share": counts[source] / total if total else 0,
+                }
+                for source in ("home", "ordered", "ateOut")
+                if source in counts
+            ]
+            sources.sort(key=lambda s: -s["count"])
+            result.append({"type": slot_type, "label": SLOT_LABELS[slot_type], "total": total, "sources": sources})
         return result

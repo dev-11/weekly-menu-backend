@@ -152,6 +152,55 @@ class TestInsightsService(unittest.TestCase):
         self.assertEqual(report["sourceByType"]["ordered"], [])
         self.assertEqual(report["sourceByType"]["ateOut"], [])
 
+    def test_type_source_breakdown_splits_each_meal_type_by_source(self):
+        weeks = [{
+            "weekStart": "2026-01-05",
+            "days": [
+                {"date": "d0", "meals": {
+                    "breakfast": _meal(""),
+                    "lunch": _meal("Pizza", source="ordered"),
+                    "dinner": _meal("Cold Plate", source="home"),
+                }},
+                {"date": "d1", "meals": {
+                    "breakfast": _meal(""),
+                    "lunch": _meal("Diner", source="ateOut"),
+                    "dinner": _meal("Cold Plate", source="home"),
+                }},
+            ],
+            "weekendDessert": _meal(""),
+        }]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(
+            report["typeSourceBreakdown"],
+            [
+                {
+                    "type": "lunch",
+                    "label": "Lunch",
+                    "total": 2,
+                    "sources": [
+                        {"key": "ordered", "label": "Ordered", "count": 1, "share": 0.5},
+                        {"key": "ateOut", "label": "Eat out", "count": 1, "share": 0.5},
+                    ],
+                },
+                {
+                    "type": "dinner",
+                    "label": "Dinner",
+                    "total": 2,
+                    "sources": [{"key": "home", "label": "Home cooked", "count": 2, "share": 1.0}],
+                },
+            ],
+        )
+
+    def test_type_source_breakdown_excludes_types_with_no_filled_slots(self):
+        weeks = [_week("2026-01-05", [_meal("Cold Plate")])]
+
+        report = self.service.build_report(weeks)
+
+        types = [t["type"] for t in report["typeSourceBreakdown"]]
+        self.assertEqual(types, ["dinner"])
+
     def test_dessert_slot_included(self):
         weeks = [_week("2026-01-05", [], dessert=_meal("Pie"))]
 
