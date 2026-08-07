@@ -32,7 +32,7 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(
             report["favourites"]["all"][0],
-            {"name": "Cold Plate", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}},
+            {"name": "Cold Plate", "url": None, "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}},
         )
 
     def test_dish_name_prefers_resolved_title_over_raw_url(self):
@@ -45,7 +45,12 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(
             report["favourites"]["all"][0],
-            {"name": "Sheet-Pan Feta", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}},
+            {
+                "name": "Sheet-Pan Feta",
+                "url": "https://cooking.nytimes.com/recipes/1",
+                "count": 2,
+                "sources": {"home": 2, "ordered": 0, "ateOut": 0},
+            },
         )
 
     def test_most_cooked_tracks_source_breakdown(self):
@@ -59,7 +64,7 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(
             report["favourites"]["all"][0],
-            {"name": "Pizza", "count": 3, "sources": {"home": 1, "ordered": 2, "ateOut": 0}},
+            {"name": "Pizza", "url": None, "count": 3, "sources": {"home": 1, "ordered": 2, "ateOut": 0}},
         )
 
     def test_empty_and_blank_dishes_are_excluded(self):
@@ -70,12 +75,29 @@ class TestInsightsService(unittest.TestCase):
         self.assertEqual(report["favourites"]["all"], [])
         self.assertEqual(report["sourceBreakdown"], {"home": 0, "ordered": 0, "ateOut": 0, "total": 0})
 
+    def test_dish_url_falls_back_to_raw_link_when_title_unresolved(self):
+        weeks = [_week("2026-01-05", [_meal("https://cooking.nytimes.com/recipes/2")])]
+
+        report = self.service.build_report(weeks)
+
+        self.assertEqual(
+            report["favourites"]["all"][0]["url"],
+            "https://cooking.nytimes.com/recipes/2",
+        )
+
+    def test_dish_url_is_none_for_plain_text_dish(self):
+        weeks = [_week("2026-01-05", [_meal("Cold Plate")])]
+
+        report = self.service.build_report(weeks)
+
+        self.assertIsNone(report["favourites"]["all"][0]["url"])
+
     def test_only_once_lists_dishes_cooked_exactly_once(self):
         weeks = [_week("2026-01-05", [_meal("Cold Plate"), _meal("Cold Plate"), _meal("Tacos")])]
 
         report = self.service.build_report(weeks)
 
-        self.assertEqual(report["onlyOnce"], [{"name": "Tacos"}])
+        self.assertEqual(report["onlyOnce"], [{"name": "Tacos", "url": None}])
 
     def test_repeat_warning_needs_three_occurrences_and_quarter_share(self):
         weeks = [_week("2026-01-05", [_meal("Cold Plate")] * 3 + [_meal(f"Other {i}") for i in range(9)])]
@@ -84,7 +106,7 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(
             report["repeatWarnings"],
-            [{"label": "Dinner", "name": "Cold Plate", "count": 3, "total": 12, "share": 0.25}],
+            [{"label": "Dinner", "name": "Cold Plate", "url": None, "count": 3, "total": 12, "share": 0.25}],
         )
 
     def test_repeat_warning_excludes_dishes_below_threshold(self):
@@ -208,7 +230,7 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(
             report["favourites"]["all"],
-            [{"name": "Pie", "count": 1, "sources": {"home": 1, "ordered": 0, "ateOut": 0}}],
+            [{"name": "Pie", "url": None, "count": 1, "sources": {"home": 1, "ordered": 0, "ateOut": 0}}],
         )
         self.assertEqual(report["varietyByType"], [{"type": "dessert", "label": "Dessert", "unique": 1, "total": 1}])
 
@@ -234,18 +256,18 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(
             report["favourites"]["byType"]["breakfast"],
-            [{"name": "Yoghurt", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}}],
+            [{"name": "Yoghurt", "url": None, "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}}],
         )
         self.assertEqual(
             report["favourites"]["byType"]["lunch"],
             [
-                {"name": "Pizza", "count": 1, "sources": {"home": 0, "ordered": 1, "ateOut": 0}},
-                {"name": "Salad", "count": 1, "sources": {"home": 1, "ordered": 0, "ateOut": 0}},
+                {"name": "Pizza", "url": None, "count": 1, "sources": {"home": 0, "ordered": 1, "ateOut": 0}},
+                {"name": "Salad", "url": None, "count": 1, "sources": {"home": 1, "ordered": 0, "ateOut": 0}},
             ],
         )
         self.assertEqual(
             report["favourites"]["byType"]["dinner"],
-            [{"name": "Cold Plate", "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}}],
+            [{"name": "Cold Plate", "url": None, "count": 2, "sources": {"home": 2, "ordered": 0, "ateOut": 0}}],
         )
         self.assertNotIn("dessert", report["favourites"]["byType"])
 
@@ -259,8 +281,8 @@ class TestInsightsService(unittest.TestCase):
 
         report = self.service.build_report(weeks)
 
-        self.assertEqual(report["favourites"]["ordered"], [{"name": "Pizza", "count": 2}])
-        self.assertEqual(report["favourites"]["ateOut"], [{"name": "Diner", "count": 1}])
+        self.assertEqual(report["favourites"]["ordered"], [{"name": "Pizza", "url": None, "count": 2}])
+        self.assertEqual(report["favourites"]["ateOut"], [{"name": "Diner", "url": None, "count": 1}])
 
     def test_favourites_ordered_excludes_dishes_never_ordered(self):
         weeks = [_week("2026-01-05", [_meal("Cold Plate", source="home")])]

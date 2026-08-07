@@ -1,3 +1,5 @@
+import re
+
 MEAL_TYPES = ["breakfast", "lunch", "dinner"]
 SLOT_TYPES = MEAL_TYPES + ["dessert"]
 SLOT_LABELS = {"breakfast": "Breakfast", "lunch": "Lunch", "dinner": "Dinner", "dessert": "Dessert"}
@@ -20,12 +22,22 @@ class InsightsService:
             "sourceBreakdown": self._source_breakdown(slots),
             "sourceByType": self._source_by_type(slots),
             "typeSourceBreakdown": self._type_source_breakdown(slots),
-            "onlyOnce": [{"name": d["name"]} for d in stats if d["count"] == 1],
+            "onlyOnce": [{"name": d["name"], "url": d["url"]} for d in stats if d["count"] == 1],
         }
 
     @staticmethod
     def _dish_name(meal):
         return (meal.get("title") or meal.get("dish") or "").strip()
+
+    # Mirrors the frontend's isLikelyUrl (utils/week.ts) — the display name
+    # above collapses title-or-dish into one string, losing the URL once a
+    # title's been resolved, so this is tracked separately alongside it to
+    # let a dish stay clickable (linking to the original dish, same as
+    # Plan/History) regardless of whether its title ever resolved.
+    @staticmethod
+    def _dish_url(meal):
+        dish = meal.get("dish") or ""
+        return dish if re.match(r"^https?://\S+$", dish, re.IGNORECASE) else None
 
     def _filled_slots(self, weeks):
         slots = []
@@ -47,7 +59,9 @@ class InsightsService:
             name = self._dish_name(meal)
             key = name.lower()
             if key not in stats:
-                stats[key] = {"name": name, "count": 0, "sources": {"home": 0, "ordered": 0, "ateOut": 0}}
+                stats[key] = {"name": name, "url": None, "count": 0, "sources": {"home": 0, "ordered": 0, "ateOut": 0}}
+            if stats[key]["url"] is None:
+                stats[key]["url"] = self._dish_url(meal)
             stats[key]["count"] += 1
             source = meal.get("source", "home")
             if source in stats[key]["sources"]:
@@ -61,7 +75,9 @@ class InsightsService:
             key = name.lower()
             type_stats = by_type.setdefault(slot_type, {})
             if key not in type_stats:
-                type_stats[key] = {"name": name, "count": 0, "sources": {"home": 0, "ordered": 0, "ateOut": 0}}
+                type_stats[key] = {"name": name, "url": None, "count": 0, "sources": {"home": 0, "ordered": 0, "ateOut": 0}}
+            if type_stats[key]["url"] is None:
+                type_stats[key]["url"] = self._dish_url(meal)
             type_stats[key]["count"] += 1
             source = meal.get("source", "home")
             if source in type_stats[key]["sources"]:
@@ -79,7 +95,7 @@ class InsightsService:
     def _favourites_by_source(stats, source):
         filtered = [d for d in stats if d["sources"][source] > 0]
         filtered.sort(key=lambda d: (-d["sources"][source], d["name"]))
-        return [{"name": d["name"], "count": d["sources"][source]} for d in filtered[:8]]
+        return [{"name": d["name"], "url": d["url"], "count": d["sources"][source]} for d in filtered[:8]]
 
     def _variety_by_type(self, slots):
         by_type = {}
@@ -105,7 +121,9 @@ class InsightsService:
             name = self._dish_name(meal)
             key = name.lower()
             dish_map = by_type.setdefault(slot_type, {})
-            dish_map.setdefault(key, {"name": name, "count": 0})
+            dish_map.setdefault(key, {"name": name, "url": None, "count": 0})
+            if dish_map[key]["url"] is None:
+                dish_map[key]["url"] = self._dish_url(meal)
             dish_map[key]["count"] += 1
             totals[slot_type] = totals.get(slot_type, 0) + 1
 
@@ -118,6 +136,7 @@ class InsightsService:
                     warnings.append({
                         "label": SLOT_LABELS[slot_type],
                         "name": stat["name"],
+                        "url": stat["url"],
                         "count": stat["count"],
                         "total": total,
                         "share": share,
