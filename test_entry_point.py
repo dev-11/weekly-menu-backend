@@ -111,3 +111,22 @@ class TestEntryPoint(unittest.TestCase):
         insights.build_report.assert_called_once_with([{"weekStart": "2026-07-27"}])
         self.assertEqual(result["statusCode"], 200)
         self.assertEqual(json.loads(result["body"]), {"mostCooked": []})
+
+    @patch("entry_point.app.ServiceFactory")
+    def test_recipes(self, mock_factory):
+        storage = MagicMock()
+        storage.list_weeks.return_value = [{"weekStart": "2026-07-27"}]
+        insights = MagicMock()
+        insights.get_recipes.return_value = [{"name": "Cold Plate", "count": 3, "lastCooked": "2026-07-27"}]
+        mock_factory.return_value.get_storage_service.return_value = storage
+        mock_factory.return_value.get_insights_service.return_value = insights
+
+        result = app.lambda_handler(
+            _event("GET", resource="/weekly_planner/recipes"), None
+        )
+
+        insights.get_recipes.assert_called_once_with([{"weekStart": "2026-07-27"}])
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(
+            json.loads(result["body"]), [{"name": "Cold Plate", "count": 3, "lastCooked": "2026-07-27"}]
+        )

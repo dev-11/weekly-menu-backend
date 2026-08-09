@@ -10,11 +10,12 @@ def lambda_handler(event, context):
     PUT /weekly_planner/{weekStart} -> create or overwrite one week, body = WeekMenu JSON
     GET /weekly_planner/unfurl      -> {"title": ...} for ?url=, or null if unresolved
     GET /weekly_planner/insights    -> pre-computed insights report across all stored weeks
+    GET /weekly_planner/recipes     -> every home-cooked dish, with count and last-cooked date
 
     "resource" (the matched API Gateway resource template, e.g.
-    "/weekly_planner/unfurl") disambiguates unfurl/insights from the other
-    two GETs, since neither pathParameters nor the body can do that on their
-    own.
+    "/weekly_planner/unfurl") disambiguates unfurl/insights/recipes from the
+    other two GETs, since neither pathParameters nor the body can do that on
+    their own.
     """
     method = event["httpMethod"]
     week_start = (event.get("pathParameters") or {}).get("weekStart")
@@ -31,6 +32,11 @@ def lambda_handler(event, context):
         weeks = ServiceFactory().get_storage_service().list_weeks()
         insights_service = ServiceFactory().get_insights_service()
         return _response(200, insights_service.build_report(weeks))
+
+    if resource == "/weekly_planner/recipes" and method == "GET":
+        weeks = ServiceFactory().get_storage_service().list_weeks()
+        insights_service = ServiceFactory().get_insights_service()
+        return _response(200, insights_service.get_recipes(weeks))
 
     if method == "GET" and week_start:
         storage_service = ServiceFactory().get_storage_service()

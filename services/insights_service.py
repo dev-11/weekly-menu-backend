@@ -25,6 +25,45 @@ class InsightsService:
             "onlyOnce": [{"name": d["name"], "url": d["url"]} for d in stats if d["count"] == 1],
         }
 
+    # Every distinct home-cooked dish across all stored weeks, with how many
+    # times it's been made and the most recent date. Unlike the slots used
+    # elsewhere in this file, this needs each meal's date (to find the most
+    # recent one), so it walks the weeks itself rather than going through
+    # _filled_slots.
+    def get_recipes(self, weeks):
+        entries = []
+        for week in weeks:
+            days = week.get("days", [])
+            for day in days:
+                meals = day.get("meals", {})
+                for meal_type in MEAL_TYPES:
+                    meal = meals.get(meal_type)
+                    if meal and meal.get("source", "home") == "home":
+                        entries.append((day.get("date"), meal))
+            dessert = week.get("weekendDessert")
+            if dessert and dessert.get("source", "home") == "home":
+                # Not tied to one specific day (shared across the whole
+                # weekend) — the last day of the week is a reasonable stand-in
+                # so it still contributes sensibly to "last cooked".
+                dessert_date = days[-1]["date"] if days else week.get("weekStart")
+                entries.append((dessert_date, dessert))
+
+        stats = {}
+        for date, meal in entries:
+            name = self._dish_name(meal)
+            if not name:
+                continue
+            key = name.lower()
+            if key not in stats:
+                stats[key] = {"name": name, "url": None, "count": 0, "lastCooked": None}
+            if stats[key]["url"] is None:
+                stats[key]["url"] = self._dish_url(meal)
+            stats[key]["count"] += 1
+            if date and (stats[key]["lastCooked"] is None or date > stats[key]["lastCooked"]):
+                stats[key]["lastCooked"] = date
+
+        return sorted(stats.values(), key=lambda d: d["name"].lower())
+
     @staticmethod
     def _dish_name(meal):
         return (meal.get("title") or meal.get("dish") or "").strip()

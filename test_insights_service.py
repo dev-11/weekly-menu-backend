@@ -292,6 +292,58 @@ class TestInsightsService(unittest.TestCase):
         self.assertEqual(report["favourites"]["ordered"], [])
         self.assertEqual(report["favourites"]["ateOut"], [])
 
+    def test_recipes_counts_across_weeks_and_finds_last_date(self):
+        weeks = [
+            _week("2026-01-05", [_meal("Cold Plate", source="home")]),
+            _week("2026-01-12", [_meal("Cold Plate", source="home")]),
+        ]
+
+        result = self.service.get_recipes(weeks)
+
+        self.assertEqual(
+            result,
+            [{"name": "Cold Plate", "url": None, "count": 2, "lastCooked": "2026-01-12-day0"}],
+        )
+
+    def test_recipes_excludes_ordered_and_ateout(self):
+        weeks = [_week("2026-01-05", [
+            _meal("Pizza", source="ordered"),
+            _meal("Diner", source="ateOut"),
+            _meal("Cold Plate", source="home"),
+        ])]
+
+        result = self.service.get_recipes(weeks)
+
+        self.assertEqual([d["name"] for d in result], ["Cold Plate"])
+
+    def test_recipes_includes_home_cooked_dessert(self):
+        weeks = [_week("2026-01-05", [_meal("")], dessert=_meal("Pie", source="home"))]
+
+        result = self.service.get_recipes(weeks)
+
+        self.assertEqual(result, [{"name": "Pie", "url": None, "count": 1, "lastCooked": "2026-01-05-day0"}])
+
+    def test_recipes_excludes_ordered_dessert(self):
+        weeks = [_week("2026-01-05", [_meal("")], dessert=_meal("Pie", source="ordered"))]
+
+        result = self.service.get_recipes(weeks)
+
+        self.assertEqual(result, [])
+
+    def test_recipes_sorted_alphabetically(self):
+        weeks = [_week("2026-01-05", [_meal("Tacos", source="home"), _meal("Cold Plate", source="home")])]
+
+        result = self.service.get_recipes(weeks)
+
+        self.assertEqual([d["name"] for d in result], ["Cold Plate", "Tacos"])
+
+    def test_recipes_url_carries_through_when_title_unresolved(self):
+        weeks = [_week("2026-01-05", [_meal("https://cooking.nytimes.com/recipes/2", source="home")])]
+
+        result = self.service.get_recipes(weeks)
+
+        self.assertEqual(result[0]["url"], "https://cooking.nytimes.com/recipes/2")
+
 
 if __name__ == "__main__":
     unittest.main()
