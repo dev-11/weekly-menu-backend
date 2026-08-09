@@ -62,7 +62,9 @@ class InsightsService:
             if date and (stats[key]["lastCooked"] is None or date > stats[key]["lastCooked"]):
                 stats[key]["lastCooked"] = date
 
-        return sorted(stats.values(), key=lambda d: d["name"].lower())
+        # Most recently cooked first; dishes with no known date (shouldn't
+        # happen in practice) sort last rather than crashing the comparison.
+        return sorted(stats.values(), key=lambda d: d["lastCooked"] or "", reverse=True)
 
     @staticmethod
     def _dish_name(meal):

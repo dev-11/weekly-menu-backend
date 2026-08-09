@@ -330,12 +330,15 @@ class TestInsightsService(unittest.TestCase):
 
         self.assertEqual(result, [])
 
-    def test_recipes_sorted_alphabetically(self):
-        weeks = [_week("2026-01-05", [_meal("Tacos", source="home"), _meal("Cold Plate", source="home")])]
+    def test_recipes_ordered_by_last_cooked_date_descending(self):
+        # Names deliberately in the opposite order alphabetically ("Apple"
+        # before "Zucchini") from their dates, so this can't pass by
+        # accidentally still sorting by name.
+        weeks = [_week("2026-01-05", [_meal("Apple Pie", source="home"), _meal("Zucchini Bake", source="home")])]
 
         result = self.service.get_recipes(weeks)
 
-        self.assertEqual([d["name"] for d in result], ["Cold Plate", "Tacos"])
+        self.assertEqual([d["name"] for d in result], ["Zucchini Bake", "Apple Pie"])
 
     def test_recipes_url_carries_through_when_title_unresolved(self):
         weeks = [_week("2026-01-05", [_meal("https://cooking.nytimes.com/recipes/2", source="home")])]
