@@ -1,9 +1,21 @@
 import urllib.request
+import zlib
 from html.parser import HTMLParser
 
 MAX_BYTES = 200_000
 TIMEOUT_SECONDS = 5
 USER_AGENT = "Mozilla/5.0 (compatible; weekly-menu-bot/1.0)"
+
+
+def _decode_body(raw):
+    """Some sites (e.g. NYT Cooking) gzip the response even though urllib never
+    sends Accept-Encoding, and urllib doesn't decompress for us. Sniffing the
+    gzip magic bytes rather than trusting the header keeps this working when
+    the body was cut off at MAX_BYTES — decompressobj yields whatever it
+    could inflate from a truncated stream instead of raising."""
+    if raw[:2] == b"\x1f\x8b":
+        raw = zlib.decompressobj(zlib.MAX_WBITS | 16).decompress(raw)
+    return raw.decode("utf-8", errors="ignore")
 
 
 class _TitleParser(HTMLParser):
@@ -42,7 +54,7 @@ class UnfurlService:
         try:
             request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-                html = response.read(MAX_BYTES).decode("utf-8", errors="ignore")
+                html = _decode_body(response.read(MAX_BYTES))
         except Exception:
             return None
 

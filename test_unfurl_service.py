@@ -1,3 +1,5 @@
+import gzip
+import random
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -33,6 +35,26 @@ class TestUnfurlService(unittest.TestCase):
         title = self.service.fetch_title("https://example.com/recipe")
 
         self.assertEqual(title, "Just a Title")
+
+    @patch("services.unfurl_service.urllib.request.urlopen")
+    def test_decompresses_gzip_response(self, mock_urlopen):
+        html = b"<html><head><title>Halloumi Souvlaki Bowl</title></head></html>"
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = gzip.compress(html)
+
+        title = self.service.fetch_title("https://cooking.nytimes.com/recipes/780000747")
+
+        self.assertEqual(title, "Halloumi Souvlaki Bowl")
+
+    @patch("services.unfurl_service.urllib.request.urlopen")
+    def test_reads_title_from_truncated_gzip_response(self, mock_urlopen):
+        # Seeded random padding, since repeated bytes compress to almost nothing
+        # and halving that would cut into the title itself.
+        padding = random.Random(0).randbytes(5000).hex().encode()
+        html = b"<html><head><title>Cut Off</title></head><body>" + padding + b"</body></html>"
+        compressed = gzip.compress(html)
+        mock_urlopen.return_value.__enter__.return_value.read.return_value = compressed[: len(compressed) // 2]
+
+        self.assertEqual(self.service.fetch_title("https://example.com/recipe"), "Cut Off")
 
     @patch("services.unfurl_service.urllib.request.urlopen")
     def test_returns_none_when_no_title_present(self, mock_urlopen):
